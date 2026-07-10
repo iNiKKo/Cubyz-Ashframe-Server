@@ -112,7 +112,6 @@ pub const User = struct { // MARK: User
 	receivedFirstEntityData: bool = false,
 	isLocal: bool = false,
 	id: main.entity.Entity = .noValue,
-	// TODO: ipPort: []const u8,
 	loadedChunks: [simulationSize][simulationSize][simulationSize]*SimulationChunk = undefined,
 	lastRenderDistance: u16 = 0,
 	lastPos: Vec3i = @splat(0),
@@ -169,7 +168,7 @@ pub const User = struct { // MARK: User
 		std.debug.assert(self.refCount.load(.monotonic) == 0);
 
 		main.items.Inventory.server.disconnectUser(self);
-		std.debug.assert(self.inventoryClientToServerIdMap.count() == 0); // leak
+		std.debug.assert(self.inventoryClientToServerIdMap.count() == 0);
 		self.inventoryClientToServerIdMap.deinit();
 
 		if (self.inventory != null) {
@@ -260,7 +259,7 @@ pub const User = struct { // MARK: User
 		}
 	}
 
-	var freeId: u32 = 0; // TODO: Use id provided by the ECS.
+	var freeId: u32 = 0;
 	pub fn initPlayer(self: *User) void {
 		self.id = @enumFromInt(freeId);
 		freeId += 1;
@@ -293,7 +292,6 @@ pub const User = struct { // MARK: User
 		const lastBoxEnd = (self.lastPos +% @as(Vec3i, @splat(self.lastRenderDistance*chunk.chunkSize))) +% @as(Vec3i, @splat(chunk.chunkSize - 1)) & ~@as(Vec3i, @splat(chunk.chunkMask));
 		const newBoxStart = (newPos -% @as(Vec3i, @splat(newRenderDistance*chunk.chunkSize))) & ~@as(Vec3i, @splat(chunk.chunkMask));
 		const newBoxEnd = (newPos +% @as(Vec3i, @splat(newRenderDistance*chunk.chunkSize))) +% @as(Vec3i, @splat(chunk.chunkSize - 1)) & ~@as(Vec3i, @splat(chunk.chunkMask));
-		// Clear all chunks not inside the new box:
 		var x: i32 = lastBoxStart[0];
 		while (x != lastBoxEnd[0]) : (x +%= chunk.chunkSize) {
 			const inXDistance = x -% newBoxStart[0] >= 0 and x -% newBoxEnd[0] < 0;
@@ -317,7 +315,6 @@ pub const User = struct { // MARK: User
 		const lastBoxEnd = (self.lastPos +% @as(Vec3i, @splat(self.lastRenderDistance*chunk.chunkSize))) +% @as(Vec3i, @splat(chunk.chunkSize - 1)) & ~@as(Vec3i, @splat(chunk.chunkMask));
 		const newBoxStart = (newPos -% @as(Vec3i, @splat(newRenderDistance*chunk.chunkSize))) & ~@as(Vec3i, @splat(chunk.chunkMask));
 		const newBoxEnd = (newPos +% @as(Vec3i, @splat(newRenderDistance*chunk.chunkSize))) +% @as(Vec3i, @splat(chunk.chunkSize - 1)) & ~@as(Vec3i, @splat(chunk.chunkMask));
-		// Clear all chunks not inside the new box:
 		var x: i32 = newBoxStart[0];
 		while (x != newBoxEnd[0]) : (x +%= chunk.chunkSize) {
 			const inXDistance = x -% lastBoxStart[0] >= 0 and x -% lastBoxEnd[0] < 0;
@@ -396,7 +393,6 @@ pub const User = struct { // MARK: User
 						user.decreaseRefCount();
 					}
 				};
-				// Create a task to resort tasks:
 				self.jobQueueLastUpdate.alreadyInUpdate = true;
 				self.increaseRefCount();
 				return .{
@@ -430,8 +426,8 @@ pub const User = struct { // MARK: User
 		defer self.mutex.unlock();
 		self.jobQueue.add(.{
 			.cachedPriority = vtable.getPriority(task),
-			.vtable = vtable,
-			.self = task,
+						  .vtable = vtable,
+						  .self = task,
 		});
 	}
 
@@ -528,13 +524,17 @@ pub const User = struct { // MARK: User
 		};
 	}
 
+	// --- ASHFRAME CUSTOM (getSpawnPos) ---
 	pub fn getSpawnPos(user: *User) Vec3d {
-		// If a home is set, prioritize it for death respawns
-		if (user.innerPlayer.home_pos) |home| {
+		user.player().back_pos = user.player().pos;
+
+		const slot = user.player().spawn_home_index;
+		if (user.innerPlayer.home_pos[slot]) |home| {
 			return home;
 		}
 		return user.spawnPos orelse @floatFromInt(main.server.world.?.spawn);
 	}
+	// --- ASHFRAME CUSTOM (getSpawnPos) ---
 
 	pub fn format(user: User, writer: *std.Io.Writer) std.Io.Writer.Error!void {
 		try writer.print("{s}@{d}", .{user.name, user.playerIndex});
@@ -561,7 +561,7 @@ pub var thread: ?std.Thread = null;
 
 fn init(name: []const u8, singlePlayerPort: ?u16, mode: ServerWorld.Mode) void { // MARK: init()
 	main.heap.allocators.createWorldArena();
-	std.debug.assert(world == null); // There can only be one world.
+	std.debug.assert(world == null);
 	command.init();
 	users = .init(main.globalAllocator);
 	userDeinitList = .init(main.globalAllocator, 16);
@@ -649,7 +649,6 @@ pub fn freeUserListAndDecreaseRefCount(allocator: main.heap.NeverFailingAllocato
 }
 
 fn getInitialEntityList(allocator: main.heap.NeverFailingAllocator) []const u8 {
-	// Send the entity updates:
 	var initialList: []const u8 = undefined;
 	const list = main.ZonElement.initArray(main.stackAllocator);
 	defer list.deinit(main.stackAllocator);
@@ -677,7 +676,6 @@ fn update() void { // MARK: update()
 		user.update();
 	}
 
-	// Send the entity data:
 	const itemData = world.?.itemDropManager.getPositionAndVelocityData(main.stackAllocator);
 	defer main.stackAllocator.free(itemData);
 
@@ -685,12 +683,12 @@ fn update() void { // MARK: update()
 	defer entityData.deinit();
 
 	for (userList) |user| {
-		const id = user.id; // TODO
+		const id = user.id;
 		entityData.append(.{
 			.id = id,
 			.pos = user.player().pos,
-			.vel = user.player().vel,
-			.rot = user.player().rot,
+						  .vel = user.player().vel,
+						  .rot = user.player().rot,
 		});
 	}
 	for (userList) |user| {
@@ -723,7 +721,7 @@ pub fn startFromNewThread(name: []const u8, port: ?u16, mode: ServerWorld.Mode) 
 }
 
 pub fn startFromExistingThread(name: []const u8, port: ?u16, mode: ServerWorld.Mode) void {
-	std.debug.assert(!running.load(.monotonic)); // There can only be one server.
+	std.debug.assert(!running.load(.monotonic));
 
 	const worldName: []const u8 = main.globalAllocator.dupe(u8, name);
 	defer main.globalAllocator.free(worldName);
@@ -733,7 +731,7 @@ pub fn startFromExistingThread(name: []const u8, port: ?u16, mode: ServerWorld.M
 	connectionManager = ConnectionManager.init(main.settings.defaultPort, .{.allowNewConnections = mode == .multiplayer}) catch |err| {
 		std.log.err("Couldn't create socket: {s}", .{@errorName(err)});
 		@panic("Could not open Server.");
-	}; // TODO Configure the second argument in the server settings.
+	};
 	defer {
 		connectionManager.deinit();
 		connectionManager = undefined;
@@ -792,7 +790,6 @@ pub fn removePlayer(user: *User) void { // MARK: removePlayer()
 	if (!foundUser) return;
 
 	sendMessage("{s}§#ffff00 left", .{user.name});
-	// Let the other clients know about that this new one left.
 	const zonArray = main.ZonElement.initArray(main.stackAllocator);
 	defer zonArray.deinit(main.stackAllocator);
 	zonArray.array.append(.{.int = @intFromEnum(user.id)});
@@ -810,15 +807,14 @@ pub fn connect(user: *User) void {
 	userConnectList.pushBack(user);
 }
 
+// --- ASHFRAME CUSTOM (connectInternal) ---
 pub fn connectInternal(user: *User) void {
 	user.initPlayer();
 	main.network.protocols.handShake.sendServerPlayerData(user.conn);
 	user.conn.handShakeState.store(.complete, .monotonic);
 
-	// TODO: addEntity(player);
 	const userList = getUserListAndIncreaseRefCount(main.stackAllocator);
 	defer freeUserListAndDecreaseRefCount(main.stackAllocator, userList);
-	// Check if a user with that account is already present
 	if (!world.?.settings.testingMode) {
 		for (userList) |other| {
 			if (other.playerIndex == user.playerIndex) {
@@ -827,7 +823,6 @@ pub fn connectInternal(user: *User) void {
 			}
 		}
 	}
-	// Let the other clients know about this new one.
 	{
 		const zonArray = main.ZonElement.initArray(main.stackAllocator);
 		defer zonArray.deinit(main.stackAllocator);
@@ -840,7 +835,7 @@ pub fn connectInternal(user: *User) void {
 			main.network.protocols.entity.send(other.conn, data);
 		}
 	}
-	{ // Let this client know about the others:
+	{
 		const zonArray = main.ZonElement.initArray(main.stackAllocator);
 		defer zonArray.deinit(main.stackAllocator);
 		for (userList) |other| {
@@ -855,14 +850,12 @@ pub fn connectInternal(user: *User) void {
 	main.network.protocols.entity.send(user.conn, initialList);
 	main.stackAllocator.free(initialList);
 
-	// Check if this is their very first time joining Ashframe
 	if (user.player().playtime == 0) {
 		sendMessage("§#ffaa00 {s} has joined Ashframe for the first time! Welcome!", .{user.name});
 	} else {
 		sendMessage("{s}§#ffff00 joined", .{user.name});
 	}
 
-	// Default player commands granted on join
 	user.permissions.addPermission(.white, "/command/avatar");
 	user.permissions.addPermission(.white, "/command/players");
 	user.permissions.addPermission(.white, "/command/back");
@@ -873,12 +866,12 @@ pub fn connectInternal(user: *User) void {
 	user.permissions.addPermission(.white, "/command/tpaccept");
 	user.permissions.addPermission(.white, "/command/afk");
 
-
 	userMutex.lock();
 	users.append(user);
 	userMutex.unlock();
 }
-// Put this helper function right here, above messageFrom
+// --- ASHFRAME CUSTOM (connectInternal) ---
+
 fn parseEmojis(msg: []const u8, buffer: []u8) []const u8 {
 	var result = msg;
 	var buf1 = buffer;
@@ -896,18 +889,18 @@ fn parseEmojis(msg: []const u8, buffer: []u8) []const u8 {
 	return result;
 }
 
+// --- ASHFRAME CUSTOM (messageFrom) ---
 pub fn messageFrom(msg: []const u8, source: *User) void { // MARK: message
 	var emoji_buf: [1024]u8 = undefined;
 	const clean_msg = parseEmojis(msg, &emoji_buf);
 
 	if (source.player().prefix) |pref| {
-		// Formats as: [prefix] Name§#ffffff : msg
 		sendMessage("[{s}§#ffffff] {s}§#ffffff > {s}", .{pref, source.name, clean_msg});
 	} else {
-		// Standard style without brackets for regular users
 		sendMessage("{s}§#ffffff > {s}", .{source.name, clean_msg});
 	}
 }
+// --- ASHFRAME CUSTOM (messageFrom) ---
 
 fn sendRawMessage(msg: []const u8) void {
 	chatMutex.lock();

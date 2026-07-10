@@ -35,7 +35,9 @@ pub fn execute(args: []const u8, source: *User) void {
 
 	switch (result) {
 		.@"/spawn" => {
+		    // --- CUSTOM ASHFRAME (back_pos) ---
 			source.player().back_pos = source.player().pos;
+			// --- CUSTOM ASHFRAME (back_pos) ---
 
 			// Bypasses getSpawnPos() and pulls the global map coordinates directly
 			const global_spawn = @as(main.vec.Vec3d, @floatFromInt(main.server.world.?.spawn));

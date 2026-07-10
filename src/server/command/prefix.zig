@@ -35,12 +35,10 @@ pub fn execute(args: []const u8, source: *User) void {
             const target = command.Target.fromPlayerIndex(params.playerIndex, source) catch return;
             defer target.deinit();
 
-            // Free previous prefix string if it exists to prevent a memory leak
             if (target.user.player().prefix) |old_pref| {
                 main.globalAllocator.free(old_pref);
             }
 
-            // main.globalAllocator is infallible, so no 'catch' is needed!
             target.user.player().prefix = main.globalAllocator.dupe(u8, params.text);
             source.sendMessage("#00ff00Successfully assigned prefix to {s}.", .{target.user.name});
             target.user.sendMessage("#00ff00Your chat prefix has been updated to: [{s}]", .{params.text});

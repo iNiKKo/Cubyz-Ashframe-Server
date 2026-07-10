@@ -28,7 +28,6 @@ pub fn execute(args: []const u8, source: *User) void {
     source.sendMessage("#00ff00--- Online Players ({d}) ---", .{online_users.len});
 
     for (online_users) |u| {
-        // Displays both their custom raw name and their simple network identifier index
         source.sendMessage("#ffffff- {s} #aaaaaa(@{d})", .{ u.name, u.playerIndex });
     }
 }

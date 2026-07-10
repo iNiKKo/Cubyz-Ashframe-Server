@@ -6,7 +6,7 @@ const List = main.List;
 const command = main.server.command;
 const User = main.server.User;
 
-pub const description = "Shows info about all the commands.";
+pub const description = "Shows info about all the commands you are permitted to use.";
 pub const usage = "/help\n/help <command>";
 
 const Args = union(enum) {
@@ -33,6 +33,15 @@ pub fn execute(args: []const u8, source: *User) void {
 		.@"/help" => {
 			var iterator = command.commands.valueIterator();
 			while (iterator.next()) |cmd| {
+				// --- ASHFRAME CUSTOM (help permission validation) ---
+				// Build permission path using a buffer to handle variable runtime string lengths safely
+				var buf: [128]u8 = undefined;
+				const perm_path = std.fmt.bufPrint(&buf, "/command/{s}", .{cmd.name}) catch continue;
+
+				// Restrict and completely hide commands the player shouldn't know exist
+				if (!source.hasPermission(perm_path)) continue;
+				// --- ASHFRAME CUSTOM (help permission validation) ---
+
 				msg.append('/');
 				msg.appendSlice(cmd.name);
 				msg.appendSlice(": ");
@@ -43,6 +52,17 @@ pub fn execute(args: []const u8, source: *User) void {
 		},
 		.@"/help <command>" => |params| {
 			const cmd = params.command.cmd;
+
+			// --- ASHFRAME CUSTOM (help targeting check) ---
+			var buf: [128]u8 = undefined;
+			const perm_path = std.fmt.bufPrint(&buf, "/command/{s}", .{cmd.name}) catch return;
+
+			if (!source.hasPermission(perm_path)) {
+				source.sendMessage("#ff0000Unrecognized command name.", .{});
+				return;
+			}
+			// --- ASHFRAME CUSTOM (help targeting check) ---
+
 			msg.append('/');
 			msg.appendSlice(cmd.name);
 			msg.appendSlice(": ");

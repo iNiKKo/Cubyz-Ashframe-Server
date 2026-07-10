@@ -1147,12 +1147,13 @@ pub const ServerWorld = struct { // MARK: ServerWorld
 
 		// Item Entities
 		self.itemDropManager.update(deltaTime);
-		{ // Collect item entities:
-			const userList = server.getUserListAndIncreaseRefCount(main.stackAllocator); // MARK: user loop[cite: 8]
+		{
+			const userList = server.getUserListAndIncreaseRefCount(main.stackAllocator);
 			defer server.freeUserListAndDecreaseRefCount(main.stackAllocator, userList);
 			for (userList) |user| {
 				self.itemDropManager.checkEntity(user);
 
+				// --- ASHFRAME CUSTOM (Auto AFK) ---
 				const prof = user.player();
 				const speed_sq = (prof.vel[0] * prof.vel[0]) + (prof.vel[1] * prof.vel[1]) + (prof.vel[2] * prof.vel[2]);
 
@@ -1174,6 +1175,7 @@ pub const ServerWorld = struct { // MARK: ServerWorld
 						prof.still_time = 0.0;
 					}
 				}
+				// --- ASHFRAME CUSTOM (Auto AFK) ---
 			}
 		}
 

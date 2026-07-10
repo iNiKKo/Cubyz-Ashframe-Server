@@ -28,10 +28,7 @@ pub fn execute(args: []const u8, source: *User) void {
 
     for (online_users) |u| {
         if (u.playerIndex == sender_index) {
-            // Store previous position for the /back command
             u.player().back_pos = u.player().pos;
-
-            // Update both the server-side position state and sync the client
             u.player().pos = target_prof.pos;
             main.network.protocols.genericUpdate.sendTPCoordinates(u.conn, target_prof.pos);
 
