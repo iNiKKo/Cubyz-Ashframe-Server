@@ -38,3 +38,4 @@ pub const tpaccept = @import("tpaccept.zig");
 pub const players = @import("players.zig");
 pub const back = @import("back.zig");
 pub const prefix = @import("prefix.zig");
+pub const lock = @import("lock.zig");

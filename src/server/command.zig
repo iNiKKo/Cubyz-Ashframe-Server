@@ -7,7 +7,6 @@ const NeverFailingAllocator = main.heap.NeverFailingAllocator;
 const List = main.List;
 const User = main.server.User;
 pub const commandList = @import("command/_list.zig");
-
 pub const Command = struct {
 	exec: *const fn (args: []const u8, source: *User) void,
 	name: []const u8,

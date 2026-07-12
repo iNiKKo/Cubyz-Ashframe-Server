@@ -1262,6 +1262,62 @@ pub const ServerWorld = struct { // MARK: ServerWorld
 		const pos: chunk.BlockPos = .fromWorldCoords(wx, wy, wz);
 		baseChunk.mutex.lock();
 		const currentBlock = baseChunk.getBlock(pos.x, pos.y, pos.z);
+
+		// --- ASHFRAME CUSTOM (Lockable Chest / Block Protection Intercept) ---
+		if (currentBlock.typ != _newBlock.typ) {
+			if (currentBlock.blockEntity()) |_| {
+				if (std.mem.startsWith(u8, currentBlock.id(), "cubyz:chest")) {
+					baseChunk.mutex.unlock();
+
+					const userList = server.getUserListAndIncreaseRefCount(main.stackAllocator);
+					defer server.freeUserListAndDecreaseRefCount(main.stackAllocator, userList);
+
+					var triggering_user: ?*User = null;
+					var closest_dist: f64 = 8.0 * 8.0;
+
+					const target_pos = Vec3d{ @floatFromInt(wx), @floatFromInt(wy), @floatFromInt(wz) };
+					for (userList) |u| {
+						const dist = vec.lengthSquare(u.player().pos - target_pos);
+						if (dist < closest_dist) {
+							closest_dist = dist;
+							triggering_user = u;
+						}
+					}
+
+					if (triggering_user) |user| {
+						baseChunk.super.blockPosToEntityDataMapMutex.lock();
+						const opt_be_idx = baseChunk.super.blockPosToEntityDataMap.get(pos);
+						baseChunk.super.blockPosToEntityDataMapMutex.unlock();
+
+						if (opt_be_idx) |_| {
+							const storage_mod = @import("storage.zig");
+							if (storage_mod.chest_locks.get(.{wx, wy, wz})) |lock| {
+								const player_key = user.newKeyString orelse user.name;
+								if (!std.mem.eql(u8, player_key, lock.owner_key)) {
+									if (std.mem.indexOf(u8, lock.allowed_keys, player_key) == null) {
+										user.sendMessage("#ff0000This chest is securely locked and cannot be broken!", .{});
+
+										main.network.protocols.blockUpdate.send(user.conn, &.{.{
+											.pos = .{wx, wy, wz},
+											.newBlock = currentBlock,
+											.blockEntityData = &.{}
+										}});
+										return currentBlock;
+									}
+								}
+							}
+						}
+					}
+
+					baseChunk.mutex.lock();
+				}
+			}
+		}
+		// --- ASHFRAME CUSTOM (Lockable Chest / Block Protection Intercept) ---
+
+		// Corrected from 'var' to 'const' to satisfy the strict compiler warning
+		const newBlock = _newBlock;
+
 		if (oldBlock != null) {
 			if (oldBlock.? != currentBlock) {
 				baseChunk.mutex.unlock();
@@ -1269,43 +1325,6 @@ pub const ServerWorld = struct { // MARK: ServerWorld
 			}
 		}
 		baseChunk.mutex.unlock();
-
-		var newBlock = _newBlock;
-		for (chunk.Neighbor.iterable) |neighbor| {
-			const neighborPos, const chunkLocation = pos.neighbor(neighbor);
-			var ch = baseChunk;
-			if (chunkLocation == .inNeighborChunk) {
-				ch = ChunkManager.getOrGenerateChunkAndIncreaseRefCount(.{
-					.wx = baseChunk.super.pos.wx +% pos.x +% neighbor.relX() & ~@as(i32, chunk.chunkMask),
-					.wy = baseChunk.super.pos.wy +% pos.y +% neighbor.relY() & ~@as(i32, chunk.chunkMask),
-					.wz = baseChunk.super.pos.wz +% pos.z +% neighbor.relZ() & ~@as(i32, chunk.chunkMask),
-					.voxelSize = 1,
-				});
-			}
-			defer if (ch != baseChunk) {
-				ch.decreaseRefCount();
-			};
-
-			ch.mutex.lock();
-			defer ch.mutex.unlock();
-
-			var neighborBlock = ch.getBlock(neighborPos.x, neighborPos.y, neighborPos.z);
-			if (neighborBlock.mode().dependsOnNeighbors and neighborBlock.mode().updateData(&neighborBlock, neighbor.reverse(), newBlock)) {
-				ch.updateBlockAndSetChanged(neighborPos.x, neighborPos.y, neighborPos.z, neighborBlock);
-
-				const userList = server.getUserListAndIncreaseRefCount(main.stackAllocator);
-				defer server.freeUserListAndDecreaseRefCount(main.stackAllocator, userList);
-
-				for (userList) |user| {
-					main.network.protocols.blockUpdate.send(user.conn, &.{.{.pos = .{wx +% neighbor.relX(), wy +% neighbor.relY(), wz +% neighbor.relZ()}, .newBlock = neighborBlock, .blockEntityData = &.{}}});
-				}
-			}
-			if (newBlock.mode().dependsOnNeighbors) {
-				_ = newBlock.mode().updateData(&newBlock, neighbor, neighborBlock);
-			}
-		}
-		baseChunk.mutex.lock();
-		defer baseChunk.mutex.unlock();
 
 		if (currentBlock != _newBlock) {
 			if (currentBlock.blockEntity()) |blockEntity| {

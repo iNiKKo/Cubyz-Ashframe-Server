@@ -461,6 +461,28 @@ pub const User = struct { // MARK: User
 		for (commands.items) |commandData| {
 			defer main.globalAllocator.free(commandData);
 			var reader: BinaryReader = .init(commandData);
+
+			// --- ASHFRAME CUSTOM (Chest Lock Interaction Check) ---
+			if (commandData.len >= 12) {
+				var peek_reader = BinaryReader.init(commandData);
+				const tx = peek_reader.readInt(i32) catch 0;
+				const ty = peek_reader.readInt(i32) catch 0;
+				const tz = peek_reader.readInt(i32) catch 0;
+				const target_pos = main.vec.Vec3i{ tx, ty, tz };
+
+				if (storage.chest_locks.get(target_pos)) |lock| {
+					const player_key = self.newKeyString orelse self.name;
+					if (lock.lock_type == 1 and !std.mem.eql(u8, player_key, lock.owner_key)) {
+						if (std.mem.indexOf(u8, lock.allowed_keys, player_key) == null) {
+							self.sendMessage("#ff0000Access Denied: This chest is private property.", .{});
+							main.network.protocols.inventory.sendFailure(self.conn);
+							continue;
+						}
+					}
+				}
+			}
+			// --- ASHFRAME CUSTOM (Chest Lock Interaction Check) ---
+
 			main.sync.server.executeUserCommand(self, &reader) catch |err| {
 				if (err == error.InventoryNotFound) {
 					main.network.protocols.inventory.sendFailure(self.conn);
@@ -865,6 +887,7 @@ pub fn connectInternal(user: *User) void {
 	user.permissions.addPermission(.white, "/command/tpa");
 	user.permissions.addPermission(.white, "/command/tpaccept");
 	user.permissions.addPermission(.white, "/command/afk");
+	user.permissions.addPermission(.white, "/command/lock");
 
 	userMutex.lock();
 	users.append(user);
@@ -890,7 +913,7 @@ fn parseEmojis(msg: []const u8, buffer: []u8) []const u8 {
 }
 
 // --- ASHFRAME CUSTOM (messageFrom) ---
-pub fn messageFrom(msg: []const u8, source: *User) void { // MARK: message
+pub fn messageFrom(msg: []const u8, source: *User) void {
 	var emoji_buf: [1024]u8 = undefined;
 	const clean_msg = parseEmojis(msg, &emoji_buf);
 
