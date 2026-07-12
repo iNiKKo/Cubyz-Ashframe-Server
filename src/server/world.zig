@@ -1248,6 +1248,42 @@ pub const ServerWorld = struct { // MARK: ServerWorld
 		ch.mutex.lock();
 		defer ch.mutex.unlock();
 		const block = ch.getBlock(x - ch.super.pos.wx, y - ch.super.pos.wy, z - ch.super.pos.wz);
+
+		// --- ASHFRAME CUSTOM (Container Access Intercept Check) ---
+		if (std.mem.startsWith(u8, block.id(), "cubyz:chest")) {
+			const storage_mod = @import("storage.zig");
+			if (storage_mod.chest_locks.get(.{x, y, z})) |lock| {
+				if (lock.lock_type == 1) {
+					const userList = server.getUserListAndIncreaseRefCount(main.stackAllocator);
+					defer server.freeUserListAndDecreaseRefCount(main.stackAllocator, userList);
+
+					var triggering_user: ?*User = null;
+					var closest_dist: f64 = 8.0 * 8.0;
+					const target_pos = Vec3d{ @floatFromInt(x), @floatFromInt(y), @floatFromInt(z) };
+
+					for (userList) |u| {
+						const dist = vec.lengthSquare(u.player().pos - target_pos);
+						if (dist < closest_dist) {
+							closest_dist = dist;
+							triggering_user = u;
+						}
+					}
+
+					if (triggering_user) |user| {
+						const player_key = user.newKeyString orelse user.name;
+						if (!std.mem.eql(u8, player_key, lock.owner_key)) {
+							if (std.mem.indexOf(u8, lock.allowed_keys, player_key) == null) {
+								user.sendMessage("#ff0000Access Denied: This chest is private property.", .{});
+								main.network.protocols.inventory.sendFailure(user.conn);
+								return null;
+							}
+						}
+					}
+				}
+			}
+		}
+		// --- ASHFRAME CUSTOM (Container Access Intercept Check) ---
+
 		if (block.blockEntity()) |blockEntity| {
 			blockEntity.getServerToClientData(.{x, y, z}, &ch.super, blockEntityDataWriter);
 		}

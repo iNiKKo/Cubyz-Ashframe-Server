@@ -450,7 +450,7 @@ pub const User = struct { // MARK: User
 		main.threadPool.addPlayer(self);
 	}
 
-	pub fn update(self: *User) void {
+	pub fn update(self: *User) void { // MARK: update()
 		self.mutex.lock();
 		self.scheduleJobQueue();
 		const commands = self.inventoryCommands;
@@ -462,26 +462,42 @@ pub const User = struct { // MARK: User
 			defer main.globalAllocator.free(commandData);
 			var reader: BinaryReader = .init(commandData);
 
-			// --- ASHFRAME CUSTOM (Chest Lock Interaction Check) ---
-			if (commandData.len >= 12) {
-				var peek_reader = BinaryReader.init(commandData);
-				const tx = peek_reader.readInt(i32) catch 0;
-				const ty = peek_reader.readInt(i32) catch 0;
-				const tz = peek_reader.readInt(i32) catch 0;
-				const target_pos = main.vec.Vec3i{ tx, ty, tz };
+			// --- ASHFRAME CUSTOM (Absolute Proximity Chest Interaction Intercept) ---
+			const prof = self.player();
+			const wx: i32 = @intFromFloat(@floor(prof.pos[0]));
+			const wy: i32 = @intFromFloat(@floor(prof.pos[1]));
+			const wz: i32 = @intFromFloat(@floor(prof.pos[2]));
 
-				if (storage.chest_locks.get(target_pos)) |lock| {
-					const player_key = self.newKeyString orelse self.name;
-					if (lock.lock_type == 1 and !std.mem.eql(u8, player_key, lock.owner_key)) {
-						if (std.mem.indexOf(u8, lock.allowed_keys, player_key) == null) {
+			var is_blocked = false;
+			if (main.server.world) |srv_world| {
+				outer: for (0..3) |dx| {
+					for (0..5) |dy| {
+						for (0..3) |dz| {
+							const tx = wx + @as(i32, @intCast(dx)) - 1;
+							const ty = wy + @as(i32, @intCast(dy)) - 2;
+							const tz = wz + @as(i32, @intCast(dz)) - 1;
+
+							const b = srv_world.getBlock(tx, ty, tz) orelse continue;
+							if (!std.mem.startsWith(u8, b.id(), "cubyz:chest")) continue;
+
+							const lock = storage.chest_locks.get(.{ tx, ty, tz }) orelse continue;
+							if (lock.lock_type != 1) continue;
+
+							const player_key = self.newKeyString orelse self.name;
+							if (std.mem.eql(u8, player_key, lock.owner_key)) continue;
+							if (std.mem.indexOf(u8, lock.allowed_keys, player_key) != null) continue;
+
 							self.sendMessage("#ff0000Access Denied: This chest is private property.", .{});
 							main.network.protocols.inventory.sendFailure(self.conn);
-							continue;
+							is_blocked = true;
+							break :outer;
 						}
 					}
 				}
 			}
-			// --- ASHFRAME CUSTOM (Chest Lock Interaction Check) ---
+
+			if (is_blocked) continue;
+			// --- ASHFRAME CUSTOM (Absolute Proximity Chest Interaction Intercept) ---
 
 			main.sync.server.executeUserCommand(self, &reader) catch |err| {
 				if (err == error.InventoryNotFound) {
