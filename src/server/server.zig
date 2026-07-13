@@ -462,43 +462,6 @@ pub const User = struct { // MARK: User
 			defer main.globalAllocator.free(commandData);
 			var reader: BinaryReader = .init(commandData);
 
-			// --- ASHFRAME CUSTOM (Absolute Proximity Chest Interaction Intercept) ---
-			const prof = self.player();
-			const wx: i32 = @intFromFloat(@floor(prof.pos[0]));
-			const wy: i32 = @intFromFloat(@floor(prof.pos[1]));
-			const wz: i32 = @intFromFloat(@floor(prof.pos[2]));
-
-			var is_blocked = false;
-			if (main.server.world) |srv_world| {
-				outer: for (0..3) |dx| {
-					for (0..5) |dy| {
-						for (0..3) |dz| {
-							const tx = wx + @as(i32, @intCast(dx)) - 1;
-							const ty = wy + @as(i32, @intCast(dy)) - 2;
-							const tz = wz + @as(i32, @intCast(dz)) - 1;
-
-							const b = srv_world.getBlock(tx, ty, tz) orelse continue;
-							if (!std.mem.startsWith(u8, b.id(), "cubyz:chest")) continue;
-
-							const lock = storage.chest_locks.get(.{ tx, ty, tz }) orelse continue;
-							if (lock.lock_type != 1) continue;
-
-							const player_key = self.newKeyString orelse self.name;
-							if (std.mem.eql(u8, player_key, lock.owner_key)) continue;
-							if (std.mem.indexOf(u8, lock.allowed_keys, player_key) != null) continue;
-
-							self.sendMessage("#ff0000Access Denied: This chest is private property.", .{});
-							main.network.protocols.inventory.sendFailure(self.conn);
-							is_blocked = true;
-							break :outer;
-						}
-					}
-				}
-			}
-
-			if (is_blocked) continue;
-			// --- ASHFRAME CUSTOM (Absolute Proximity Chest Interaction Intercept) ---
-
 			main.sync.server.executeUserCommand(self, &reader) catch |err| {
 				if (err == error.InventoryNotFound) {
 					main.network.protocols.inventory.sendFailure(self.conn);
