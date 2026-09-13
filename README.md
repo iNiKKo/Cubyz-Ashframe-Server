@@ -46,10 +46,3 @@ This branch targets Cubyz **0.4.0** (built on current [PixelGuys/Cubyz](https://
 > **Note:** Admin commands are dynamically filtered out of `/help` and hidden from regular users who lack permission.
 
 ---
-
-## Notes on this port
-
-- `/home` was simplified from the old 3-slot system down to a single home. `/home spawn` (setting your home as your respawn point) was dropped — it never actually hooked into how death/respawn works in current upstream, so it wasn't worth carrying forward broken. Old 3-slot save data still loads correctly.
-- `/spawn` (no arguments) now actually teleports you, instead of just printing coordinates like it did before this port.
-- All command output (success, errors, usage hints, chat prefixes, join/leave messages) uses one consistent Ashframe color palette instead of the old mix of plain red/green/yellow.
-- Chest-locking and other older fork features are intentionally not part of this pass.
