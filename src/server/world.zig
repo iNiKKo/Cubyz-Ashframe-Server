@@ -1351,8 +1351,7 @@ pub const ServerWorld = struct { // MARK: ServerWorld
 		}
 		// --- ASHFRAME CUSTOM (Lockable Chest / Block Protection Intercept) ---
 
-		// Corrected from 'var' to 'const' to satisfy the strict compiler warning
-		const newBlock = _newBlock;
+		var newBlock = _newBlock;
 
 		if (oldBlock != null) {
 			if (oldBlock.? != currentBlock) {
@@ -1361,6 +1360,42 @@ pub const ServerWorld = struct { // MARK: ServerWorld
 			}
 		}
 		baseChunk.mutex.unlock();
+
+		for (chunk.Neighbor.iterable) |neighbor| {
+			const neighborPos, const chunkLocation = pos.neighbor(neighbor);
+			var ch = baseChunk;
+			if (chunkLocation == .inNeighborChunk) {
+				ch = ChunkManager.getOrGenerateChunkAndIncreaseRefCount(.{
+					.wx = baseChunk.super.pos.wx +% pos.x +% neighbor.relX() & ~@as(i32, chunk.chunkMask),
+					.wy = baseChunk.super.pos.wy +% pos.y +% neighbor.relY() & ~@as(i32, chunk.chunkMask),
+					.wz = baseChunk.super.pos.wz +% pos.z +% neighbor.relZ() & ~@as(i32, chunk.chunkMask),
+					.voxelSize = 1,
+				});
+			}
+			defer if (ch != baseChunk) {
+				ch.decreaseRefCount();
+			};
+
+			ch.mutex.lock();
+			defer ch.mutex.unlock();
+
+			var neighborBlock = ch.getBlock(neighborPos.x, neighborPos.y, neighborPos.z);
+			if (neighborBlock.mode().dependsOnNeighbors and neighborBlock.mode().updateData(&neighborBlock, neighbor.reverse(), newBlock)) {
+				ch.updateBlockAndSetChanged(neighborPos.x, neighborPos.y, neighborPos.z, neighborBlock);
+
+				const userList = server.getUserListAndIncreaseRefCount(main.stackAllocator);
+				defer server.freeUserListAndDecreaseRefCount(main.stackAllocator, userList);
+
+				for (userList) |user| {
+					main.network.protocols.blockUpdate.send(user.conn, &.{.{.pos = .{wx +% neighbor.relX(), wy +% neighbor.relY(), wz +% neighbor.relZ()}, .newBlock = neighborBlock, .blockEntityData = &.{}}});
+				}
+			}
+			if (newBlock.mode().dependsOnNeighbors) {
+				_ = newBlock.mode().updateData(&newBlock, neighbor, neighborBlock);
+			}
+		}
+		baseChunk.mutex.lock();
+		defer baseChunk.mutex.unlock();
 
 		if (currentBlock != _newBlock) {
 			if (currentBlock.blockEntity()) |blockEntity| {
