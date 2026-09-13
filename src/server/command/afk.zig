@@ -23,8 +23,8 @@ pub fn execute(args: Args, source: Source) void {
 	prof.still_time = 0.0;
 
 	if (prof.is_afk) {
-		main.server.sendMessage("{s}§#aaaaaa is now AFK", .{user.name});
+		main.server.sendMessage("{s}§#8a8a8a is now AFK", .{user.name});
 	} else {
-		main.server.sendMessage("{s}§#00ff00 is no longer AFK", .{user.name});
+		main.server.sendMessage("{s}§#cfcfcf is no longer AFK", .{user.name});
 	}
 }

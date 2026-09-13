@@ -22,6 +22,8 @@ pub const players = @import("players.zig");
 pub const playtime = @import("playtime.zig");
 pub const afk = @import("afk.zig");
 pub const prefix = @import("prefix.zig");
+pub const tpdeny = @import("tpdeny.zig");
+pub const msg = @import("msg.zig");
 // --- ASHFRAME CUSTOM (Commands) ---
 
 pub const avatar = @import("entity/avatar.zig");

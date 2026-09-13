@@ -1,48 +1,55 @@
-# Ashframe custom files — Cubyz 0.4.0
+# Cubyz-Ashframe-Server
 
-This branch contains **only the files that differ from upstream
-[PixelGuys/Cubyz](https://github.com/PixelGuys/Cubyz) master** (as of
-commit `89233bd`, 2026-09-07). It is not a full copy of the game —
-download a real Cubyz 0.4.0 release/checkout separately, then copy these
-files into it, overwriting the matching paths.
+Custom server modification specifically for hosting and running the **Ashframe** community server.
 
-## How to use
+This branch targets Cubyz **0.4.0** (built on current [PixelGuys/Cubyz](https://github.com/PixelGuys/Cubyz) master). It contains only the files that differ from a clean 0.4.0 checkout — download or clone upstream Cubyz separately, then copy these files over the matching paths and build as normal (`zig build`).
 
-1. Download or clone upstream Cubyz (0.4.0 release once it's out, or
-   current master as a preview).
-2. Copy every file from this branch into the same relative path in your
-   Cubyz checkout, overwriting what's there.
-3. Build as normal (`zig build`).
+---
 
-## What's in here
+## Player Commands
 
-New commands (no upstream equivalent):
+| Syntax / Usage | Description |
+| :--- | :--- |
+| `/home` | Teleports you to your saved home location. |
+| `/home set` | Saves your current location as your home. |
+| `/home remove` | Deletes your saved home. |
+| `/tpa <player>` | Sends a teleport request using smart name matching. Automatically filters out game color codes and handles case-insensitive partial names or explicit `@id` fallbacks. |
+| `/tpaccept` | Accepts a pending incoming teleport request. |
+| `/tpdeny` | Declines a pending incoming teleport request. |
+| `/back` | Teleports you back to your last position, including your exact spot of death right before you respawn. |
+| `/spawn` | Teleports you instantly to the world spawn point. |
+| `/msg <player> <message>` | Sends a private message to another player. Uses the same smart name matching as `/tpa`. |
+| `/playtime` | Displays your total accumulated playtime on this server. |
+| `/playtime list` | Opens the server-wide playtime leaderboard. |
+| `/avatar <skin>` | Modifies your character's active 3D model skin. *(e.g., `/avatar base:skin_name`)* |
+| `/afk` | Toggles your status to away-from-keyboard and notifies the chat. Also triggers automatically after 5 minutes idle. |
+| `/players` | Displays a list of all currently connected online players. |
+| `/kill @<playerIndex>` or `/kill <name>` | Kills the specified player (self, by index, or by smart name match). |
+| `/help` | Displays a personalized list of commands showing only what you have permission to use. |
 
-- `src/server/command/home.zig` — `/home add/remove/list/spawn/<name>`
-- `src/server/command/tpa.zig` — `/tpa <player>`
-- `src/server/command/tpaccept.zig` — `/tpaccept`
-- `src/server/command/back.zig` — `/back`
-- `src/server/command/players.zig` — `/players`
-- `src/server/command/playtime.zig` — `/playtime`, `/playtime list`
-- `src/server/command/afk.zig` — `/afk`
-- `src/server/command/prefix.zig` — `/prefix add/remove @<index> <text>`
-- `src/server/emojis.zig` — `:shortcode:` → emoji table used by chat formatting
+---
 
-Modified upstream files:
+## Admin Commands
 
-- `src/server/command/_list.zig` — registers the new commands above.
-- `src/server/Entity.zig` — adds player fields the new commands need
-  (home slots, back position, playtime, AFK state, chat prefix) plus
-  their save/load logic.
-- `src/server/server.zig` — chat formatting (`messageFrom`): applies
-  emoji shortcodes and `[prefix]` before the player name; grants
-  default permissions for the new commands on join.
-- `src/server/world.zig` — auto-AFK after idling, on top of the
-  restored neighbor-block-update fix.
+### Prefix Management
+*   **Add a Prefix:**
+    ```bash
+    /prefix add @<playerIndex> <text>
+    ```
+    *Example:* `/prefix add @2 Admin` — Assigns a bracketed visual title to a player in chat. `<text>` may span multiple words, and can embed its own `§#rrggbb` color code (defaults to red if omitted).
+*   **Remove a Prefix:**
+    ```bash
+    /prefix remove @<playerIndex>
+    ```
+    *Example:* `/prefix remove @2` — Strips the title and safely deallocates the string memory from the server.
 
-`/spawn` (bare, no args) and `/help` (permission-filtered output) are
-**not** in this overlay — current upstream master already behaves this
-way natively, no changes needed.
+> **Note:** Admin commands are dynamically filtered out of `/help` and hidden from regular users who lack permission.
 
-Not included on purpose: chest-locking and other older fork features —
-out of scope for this pass.
+---
+
+## Notes on this port
+
+- `/home` was simplified from the old 3-slot system down to a single home. `/home spawn` (setting your home as your respawn point) was dropped — it never actually hooked into how death/respawn works in current upstream, so it wasn't worth carrying forward broken. Old 3-slot save data still loads correctly.
+- `/spawn` (no arguments) now actually teleports you, instead of just printing coordinates like it did before this port.
+- All command output (success, errors, usage hints, chat prefixes, join/leave messages) uses one consistent Ashframe color palette instead of the old mix of plain red/green/yellow.
+- Chest-locking and other older fork features are intentionally not part of this pass.

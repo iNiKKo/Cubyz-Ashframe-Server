@@ -39,15 +39,15 @@ pub fn execute(args: Args, source: Source) void {
 				return;
 			}
 			const total = getLivePlaytime(source.user.player());
-			source.sendMessage("#00ff00Your total playtime: #ffff00{}h {}m", .{total/3600, (total%3600)/60});
+			source.sendMessage("#cfcfcfYour total playtime: #e6312c{}h {}m", .{total/3600, (total%3600)/60});
 		},
 		.@"/playtime list" => {
 			const world = main.server.world orelse {
-				source.sendMessage("#ff0000No world is currently loaded.", .{});
+				source.sendMessage("#e6312cNo world is currently loaded.", .{});
 				return;
 			};
 
-			source.sendMessage("#ffff00- Server Playtime Leaderboard -", .{});
+			source.sendMessage("#f2f2f2- Server Playtime Leaderboard -", .{});
 
 			var leaderList: main.List(LeaderboardEntry) = .empty;
 			defer {
@@ -55,15 +55,17 @@ pub fn execute(args: Args, source: Source) void {
 				leaderList.deinit(main.stackAllocator);
 			}
 
-			world.saveAllPlayers() catch |err| {
-				std.log.err("Error while saving players for /playtime list: {s}", .{@errorName(err)});
-			};
+			// Online players' playtime is computed live below via getLivePlaytime(), so their
+			// on-disk files don't need to be fresh - only offline players' saved files are read
+			// as-is. No save is needed just to display the leaderboard.
+			const userList = main.server.getUserList(main.stackAllocator);
+			defer main.stackAllocator.free(userList);
 
 			const playerDirPath = main.stackAllocator.print("saves/{s}/players", .{world.path});
 			defer main.stackAllocator.free(playerDirPath);
 
 			var playerDir = files.cubyzDir().openIterableDir(playerDirPath) catch {
-				source.sendMessage("#ff0000Could not read player data.", .{});
+				source.sendMessage("#e6312cCould not read player data.", .{});
 				return;
 			};
 			defer playerDir.close();
@@ -82,8 +84,6 @@ pub fn execute(args: Args, source: Source) void {
 				const entityZon = playerData.getChildOrNull("entity") orelse continue;
 				var accumulated = entityZon.get(u64, "playtime") orelse 0;
 
-				const userList = main.server.getUserList(main.stackAllocator);
-				defer main.stackAllocator.free(userList);
 				for (userList) |u| {
 					if (std.mem.eql(u8, u.name, name)) {
 						accumulated = getLivePlaytime(u.player());
@@ -99,7 +99,7 @@ pub fn execute(args: Args, source: Source) void {
 			const displayCount = @min(@as(usize, 10), leaderList.items.len);
 			for (0..displayCount) |i| {
 				const entry = leaderList.items[i];
-				source.sendMessage("#00ff00{}. #ffff00{s} §#00ff00- {}h {}m", .{i + 1, entry.name, entry.playtime/3600, (entry.playtime%3600)/60});
+				source.sendMessage("#cfcfcf{}. #e6312c{s} §#cfcfcf- {}h {}m", .{i + 1, entry.name, entry.playtime/3600, (entry.playtime%3600)/60});
 			}
 		},
 	}

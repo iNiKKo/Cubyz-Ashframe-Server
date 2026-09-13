@@ -21,12 +21,12 @@ pub fn execute(args: Args, source: Source) void {
 	const prof = user.player();
 
 	const target_pos = prof.back_pos orelse {
-		source.sendMessage("#ff0000You do not have a previous location to return to.", .{});
+		source.sendMessage("#e6312cYou do not have a previous location to return to.", .{});
 		return;
 	};
 
 	main.network.protocols.genericUpdate.sendTPCoordinates(user.conn, target_pos);
-	source.sendMessage("#00ff00Teleported back to your previous location.", .{});
+	source.sendMessage("#cfcfcfTeleported back to your previous location.", .{});
 
 	prof.back_pos = null;
 }

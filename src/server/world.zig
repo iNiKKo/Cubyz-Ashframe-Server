@@ -1139,7 +1139,7 @@ pub const ServerWorld = struct { // MARK: ServerWorld
 					if (speedSq > 0.0001) {
 						prof.is_afk = false;
 						prof.still_time = 0.0;
-						server.sendMessage("{s}§#00ff00 is no longer AFK", .{user.name});
+						server.sendMessage("{s}§#cfcfcf is no longer AFK", .{user.name});
 					}
 				} else {
 					if (speedSq <= 0.0001) {
@@ -1147,7 +1147,7 @@ pub const ServerWorld = struct { // MARK: ServerWorld
 
 						if (prof.still_time >= 300.0) {
 							prof.is_afk = true;
-							server.sendMessage("{s}§#aaaaaa is now AFK (Inactivity)", .{user.name});
+							server.sendMessage("{s}§#8a8a8a is now AFK (Inactivity)", .{user.name});
 						}
 					} else {
 						prof.still_time = 0.0;

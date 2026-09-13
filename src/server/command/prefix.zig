@@ -11,13 +11,13 @@ pub const usage =
 ;
 
 pub const Args = union(enum) {
-	@"/prefix add <playerIndex> <text>": struct {add: enum {add}, playerIndex: ?command.PlayerIndex, text: []const u8},
+	@"/prefix add <playerIndex> <text>": struct {add: enum {add}, playerIndex: ?command.PlayerIndex, text: command.RestOfLine},
 	@"/prefix remove <playerIndex>": struct {remove: enum {remove}, playerIndex: ?command.PlayerIndex},
 };
 
 pub fn execute(args: Args, source: Source) void {
 	if (!source.hasPermission("/command/prefix/admin")) {
-		source.sendMessage("#ff0000You do not have permission to manage player prefixes.", .{});
+		source.sendMessage("#e6312cYou do not have permission to manage player prefixes.", .{});
 		return;
 	}
 
@@ -29,9 +29,9 @@ pub fn execute(args: Args, source: Source) void {
 				main.globalAllocator.free(oldPrefix);
 			}
 
-			target.user.player().prefix = main.globalAllocator.dupe(u8, params.text);
-			source.sendMessage("#00ff00Successfully assigned prefix to {s}.", .{target.user.name});
-			target.user.sendMessage("#00ff00Your chat prefix has been updated to: [{s}]", .{params.text});
+			target.user.player().prefix = main.globalAllocator.dupe(u8, params.text.text);
+			source.sendMessage("#cfcfcfSuccessfully assigned prefix to #e6312c{s}#cfcfcf.", .{target.user.name});
+			target.user.sendMessage("#cfcfcfYour chat prefix has been updated to: #8a8a8a[#e6312c{s}#8a8a8a]", .{params.text.text});
 		},
 		.@"/prefix remove <playerIndex>" => |params| {
 			const target = command.Target.fromPlayerIndex(params.playerIndex, source) catch return;
@@ -39,10 +39,10 @@ pub fn execute(args: Args, source: Source) void {
 			if (target.user.player().prefix) |oldPrefix| {
 				main.globalAllocator.free(oldPrefix);
 				target.user.player().prefix = null;
-				source.sendMessage("#00ff00Successfully cleared prefix from {s}.", .{target.user.name});
-				target.user.sendMessage("#ffff00Your chat prefix has been removed.", .{});
+				source.sendMessage("#cfcfcfSuccessfully cleared prefix from #e6312c{s}#cfcfcf.", .{target.user.name});
+				target.user.sendMessage("#e6312cYour chat prefix has been removed.", .{});
 			} else {
-				source.sendMessage("#ff0000Player {s} does not currently have a prefix.", .{target.user.name});
+				source.sendMessage("#e6312cPlayer #cfcfcf{s}#e6312c does not currently have a prefix.", .{target.user.name});
 			}
 		},
 	}

@@ -17,12 +17,12 @@ pub fn execute(args: Args, source: Source) void {
 	defer main.stackAllocator.free(userList);
 
 	if (userList.len == 0) {
-		source.sendMessage("#ffff00There are no players online.", .{});
+		source.sendMessage("#cfcfcfThere are no players online.", .{});
 		return;
 	}
 
-	source.sendMessage("#00ff00--- Online Players ({d}) ---", .{userList.len});
+	source.sendMessage("#f2f2f2--- Online Players ({d}) ---", .{userList.len});
 	for (userList) |user| {
-		source.sendMessage("#ffffff- {s} #aaaaaa(@{d})", .{user.name, user.playerIndex});
+		source.sendMessage("#cfcfcf- #e6312c{s} #8a8a8a(@{d})", .{user.name, user.playerIndex});
 	}
 }

@@ -16,9 +16,7 @@ prefix: ?[]const u8 = null,
 tpa_request_from: ?usize = null,
 still_time: f32 = 0.0,
 is_afk: bool = false,
-home_pos: [3]?Vec3d = .{null, null, null},
-home_names: [3]?[]const u8 = .{null, null, null},
-spawn_home_index: usize = 0,
+home_pos: ?Vec3d = null,
 back_pos: ?Vec3d = null,
 playtime: u64 = 0,
 login_time: i64 = 0,
@@ -57,20 +55,24 @@ pub fn loadFrom(self: *@This(), id: main.entity.Entity, zon: ZonElement, comptim
 
 	// --- ASHFRAME CUSTOM (loadFrom) ---
 	self.back_pos = zon.get(Vec3d, "back_pos");
-	self.spawn_home_index = zon.get(usize, "ash_spawn_index") orelse 0;
 
-	// Backward compatibility: if an old single home_pos is present with no names, assign it to slot "main".
-	if (zon.get(Vec3d, "home_pos")) |old_hp| {
-		self.home_pos[0] = old_hp;
-		self.home_names[0] = main.globalAllocator.dupe(u8, "main");
+	// Single-home format.
+	if (zon.get(Vec3d, "home_pos")) |hp| {
+		self.home_pos = hp;
 	} else {
-		inline for (0..3) |i| {
-			const pos_key = std.fmt.comptimePrint("ash_hp_{}", .{i});
-			const name_key = std.fmt.comptimePrint("ash_hn_{}", .{i});
-
-			self.home_pos[i] = zon.get(Vec3d, pos_key);
-			if (zon.get([]const u8, name_key)) |n| {
-				self.home_names[i] = main.globalAllocator.dupe(u8, n);
+		// Backward compatibility with the old 3-slot format: prefer whichever slot
+		// was marked as the respawn point, otherwise fall back to the first filled slot.
+		const legacySlots = [3]?Vec3d{
+			zon.get(Vec3d, "ash_hp_0"),
+			zon.get(Vec3d, "ash_hp_1"),
+			zon.get(Vec3d, "ash_hp_2"),
+		};
+		const spawnIndex = zon.get(usize, "ash_spawn_index") orelse 0;
+		if (spawnIndex < legacySlots.len and legacySlots[spawnIndex] != null) {
+			self.home_pos = legacySlots[spawnIndex];
+		} else {
+			for (legacySlots) |slot| {
+				if (self.home_pos == null) self.home_pos = slot;
 			}
 		}
 	}
@@ -88,9 +90,6 @@ pub fn clone(self: *@This(), copy: *@This()) void {
 	copy.name = if (self.name) |name| main.globalAllocator.dupe(u8, name) else null;
 
 	// --- ASHFRAME CUSTOM (clone) ---
-	for (self.home_names, 0..) |hn, i| {
-		copy.home_names[i] = if (hn) |n| main.globalAllocator.dupe(u8, n) else null;
-	}
 	copy.prefix = if (self.prefix) |p| main.globalAllocator.dupe(u8, p) else null;
 	// --- ASHFRAME CUSTOM (clone) ---
 
@@ -120,21 +119,11 @@ pub fn save(self: *const @This(), allocator: NeverFailingAllocator, audience: ma
 	if (self.back_pos) |bp| {
 		zon.put("back_pos", bp);
 	}
-	zon.put("ash_spawn_index", self.spawn_home_index);
+	if (self.home_pos) |hp| {
+		zon.put("home_pos", hp);
+	}
 	if (self.prefix) |p| {
 		zon.put("prefix", p);
-	}
-
-	inline for (0..3) |i| {
-		const pos_key = std.fmt.comptimePrint("ash_hp_{}", .{i});
-		const name_key = std.fmt.comptimePrint("ash_hn_{}", .{i});
-
-		if (self.home_pos[i]) |hp| {
-			zon.put(pos_key, hp);
-		}
-		if (self.home_names[i]) |hn| {
-			zon.put(name_key, hn);
-		}
 	}
 	// --- ASHFRAME CUSTOM (save) ---
 
@@ -149,10 +138,6 @@ pub fn deinit(self: *@This(), comptime side: main.sync.Side) void {
 		main.globalAllocator.free(p);
 		self.prefix = null;
 	}
-	for (self.home_names) |hn| {
-		if (hn) |n| main.globalAllocator.free(n);
-	}
-	self.home_names = .{null, null, null};
 	// --- ASHFRAME CUSTOM (deinit) ---
 
 	if (self.name) |name| {

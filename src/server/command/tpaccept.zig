@@ -21,12 +21,12 @@ pub fn execute(args: Args, source: Source) void {
 	const prof = user.player();
 
 	const senderIndex = prof.tpa_request_from orelse {
-		source.sendMessage("#ff0000You have no pending teleport requests.", .{});
+		source.sendMessage("#e6312cYou have no pending teleport requests.", .{});
 		return;
 	};
 
 	const sender = main.server.getUserByIndex(senderIndex) orelse {
-		source.sendMessage("#ff0000The player who sent the request is no longer online.", .{});
+		source.sendMessage("#e6312cThe player who sent the request is no longer online.", .{});
 		prof.tpa_request_from = null;
 		return;
 	};
@@ -35,8 +35,8 @@ pub fn execute(args: Args, source: Source) void {
 	sender.player().pos = prof.pos;
 	main.network.protocols.genericUpdate.sendTPCoordinates(sender.conn, prof.pos);
 
-	sender.sendMessage("#00ff00Teleport request accepted. Teleporting...", .{});
-	source.sendMessage("#00ff00Accepted teleport request from {s}.", .{sender.name});
+	sender.sendMessage("#cfcfcfTeleport request accepted. Teleporting...", .{});
+	source.sendMessage("#cfcfcfAccepted teleport request from #e6312c{s}#cfcfcf.", .{sender.name});
 
 	prof.tpa_request_from = null;
 }

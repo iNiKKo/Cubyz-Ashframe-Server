@@ -326,6 +326,8 @@ pub const User = struct { // MARK: User
 			// additionally gates the actual add/remove behaviour behind "/command/prefix/admin",
 			// which is NOT granted by default - an operator must grant it explicitly via /perm.
 			main.entity.components.@"cubyz:permissions".server.addPermission(self.id, .white, "/command/prefix");
+			main.entity.components.@"cubyz:permissions".server.addPermission(self.id, .white, "/command/tpdeny");
+			main.entity.components.@"cubyz:permissions".server.addPermission(self.id, .white, "/command/msg");
 			// --- ASHFRAME CUSTOM (default command permissions) ---
 		}
 		if (self.isLocal) {
@@ -820,7 +822,7 @@ pub fn removePlayer(user: *User) void { // MARK: removePlayer()
 	};
 	if (!foundUser) return;
 
-	sendMessage("{s}§#ffff00 left", .{user.name});
+	sendMessage("{s}§#8a8a8a left", .{user.name});
 	// Let the other clients know about that this new one left.
 	const zonArray = main.ZonElement.initArray(main.stackAllocator);
 	defer zonArray.deinit(main.stackAllocator);
@@ -882,7 +884,7 @@ pub fn connectInternal(user: *User) void {
 	const initialList = getInitialEntityList(main.stackAllocator);
 	main.network.protocols.entity.send(user.conn, initialList);
 	main.stackAllocator.free(initialList);
-	sendMessage("{s}§#ffff00 joined", .{user.name});
+	sendMessage("{s}§#8a8a8a joined", .{user.name});
 
 	userMutex.lock();
 	users.append(user);
@@ -894,9 +896,11 @@ pub fn messageFrom(msg: []const u8, source: *User) void { // MARK: message
 	const clean_msg = emojis.parseEmojis(msg, &emoji_buf);
 
 	if (source.player().prefix) |pref| {
-		sendMessage("[{s}§#ffffff] {s}§#ffffff > {s}", .{pref, source.name, clean_msg});
+		// The prefix text can carry its own §#rrggbb color code (set via /prefix add);
+		// it defaults to the Ashframe red below if the admin didn't include one.
+		sendMessage("§#8a8a8a[§#e6312c{s}§#8a8a8a]§#cfcfcf {s}§#8a8a8a > §#cfcfcf{s}", .{pref, source.name, clean_msg});
 	} else {
-		sendMessage("{s}§#ffffff > {s}", .{source.name, clean_msg});
+		sendMessage("{s}§#8a8a8a > §#cfcfcf{s}", .{source.name, clean_msg});
 	}
 }
 
