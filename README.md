@@ -2,7 +2,7 @@
 
 Custom server modification specifically for hosting and running the **Ashframe** community server.
 
-This branch targets Cubyz **0.4.0** (built on current [PixelGuys/Cubyz](https://github.com/PixelGuys/Cubyz) master). It contains only the files that differ from a clean 0.4.0 checkout — download or clone upstream Cubyz separately, then copy these files over the matching paths and build as normal (`zig build`).
+This branch targets Cubyz **0.4.0** download or clone upstream Cubyz separately, then copy these files over the matching paths and build as normal (`zig build`).
 
 ---
 
